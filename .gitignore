@@ -1,3 +1,4 @@
 build/
-dist/
+dist/*
+!dist/LanLock.dmg
 .DS_Store

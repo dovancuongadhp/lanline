@@ -205,7 +205,8 @@ struct LanLockApp: App {
         Window("Chặn mạng ngoài", id: "main") {
             MainWindow(model: model, appDelegate: appDelegate)
         }
-        .defaultSize(width: 520, height: 580)
+        .defaultSize(width: 520, height: 300)
+        .windowResizability(.contentSize)
         .defaultLaunchBehavior(.presented)
     }
 }
@@ -494,9 +495,32 @@ struct ControlPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text("Tác giả: Đỗ Văn Cường")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(width: 520, alignment: .topLeading)
+        .fixedSize(horizontal: true, vertical: true)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { fitWindow(to: proxy.size) }
+                    .onChange(of: proxy.size) { _, size in fitWindow(to: size) }
+            }
+        }
+    }
+
+    private func fitWindow(to size: CGSize) {
+        guard size.width > 200, size.height > 120 else { return }
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.title == "Chặn mạng ngoài" }) else { return }
+            window.styleMask.remove(.resizable)
+            let current = window.contentRect(forFrameRect: window.frame).size
+            guard abs(current.width - size.width) > 1 || abs(current.height - size.height) > 1 else { return }
+            window.setContentSize(size)
+        }
     }
 
     private var header: some View {
@@ -538,19 +562,17 @@ struct ControlPanel: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(model.rows) { row in
-                            networkRow(row)
-                            if row.id != model.rows.last?.id {
-                                Divider()
-                            }
+                VStack(spacing: 0) {
+                    ForEach(model.rows) { row in
+                        networkRow(row)
+                        if row.id != model.rows.last?.id {
+                            Divider()
                         }
                     }
                 }
-                .frame(maxHeight: 240)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func networkRow(_ row: ShownNetwork) -> some View {

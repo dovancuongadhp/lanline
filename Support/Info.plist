@@ -30,5 +30,7 @@
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Đỗ Văn Cường</string>
 </dict>
 </plist>

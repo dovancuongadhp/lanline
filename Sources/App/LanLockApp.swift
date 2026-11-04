@@ -207,7 +207,6 @@ struct LanLockApp: App {
         }
         .defaultSize(width: 520, height: 300)
         .windowResizability(.contentSize)
-        .defaultLaunchBehavior(.presented)
     }
 }
 

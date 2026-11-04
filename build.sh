@@ -3,10 +3,12 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="build/LanLock.app"
+# Bản build trên máy mới mặc định đòi đúng macOS đó. Giữ 14.0 để macOS 26 vẫn mở được.
+TARGET="arm64-apple-macos14.0"
 rm -rf "$APP" build/AppIcon.iconset build/drawicons
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/AppIcon.iconset dist
 
-swiftc -O -o "$APP/Contents/MacOS/lanlockd" \
+swiftc -target "$TARGET" -O -o "$APP/Contents/MacOS/lanlockd" \
   Sources/Shared/Logic.swift \
   Sources/Shared/ControlClient.swift \
   Sources/Daemon/Engine.swift \
@@ -14,14 +16,14 @@ swiftc -O -o "$APP/Contents/MacOS/lanlockd" \
   Sources/Daemon/SelfTest.swift \
   Sources/Daemon/main.swift
 
-swiftc -O -parse-as-library \
+swiftc -target "$TARGET" -O -parse-as-library \
   -framework SwiftUI -framework AppKit -framework LocalAuthentication -framework Security \
   -o "$APP/Contents/MacOS/LanLock" \
   Sources/Shared/Logic.swift \
   Sources/Shared/ControlClient.swift \
   Sources/App/LanLockApp.swift
 
-swiftc -O -framework AppKit -o build/drawicons Sources/Tools/DrawIcons.swift
+swiftc -target "$TARGET" -O -framework AppKit -o build/drawicons Sources/Tools/DrawIcons.swift
 build/drawicons build/AppIcon.iconset
 iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 cp Support/Info.plist "$APP/Contents/Info.plist"

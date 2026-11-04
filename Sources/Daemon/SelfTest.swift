@@ -66,6 +66,7 @@ enum SelfTest {
         failed += expect(services.first { $0.name == "Bluetooth PAN" }?.enabled == true, "Bluetooth PAN đang bật")
         failed += expect(!isTetherService("AX88179A") && !isTetherService("x52-local") && !isTetherService("Wi-Fi"), "LAN và VPN không phải tether")
         failed += expect(isTetherService("iPhone USB") && isTetherService("Bluetooth PAN"), "Nhận diện tether")
+        failed += expect(isWifiServiceName("Wi-Fi") && isWifiServiceName("Wi\u{2011}Fi"), "Nhận diện Wi‑Fi cả gạch ngang đặc biệt")
         failed += expect(parseWifiPower("Wi-Fi Power (en0): On") == true, "Đọc nguồn Wi-Fi On")
         failed += expect(parseWifiPower("Wi-Fi Power (en0): Off") == false, "Đọc nguồn Wi-Fi Off")
         failed += expect(parsePfToken("No ALTQ support\nToken : 3181439846958614074\n") == "3181439846958614074", "Đọc token pf")

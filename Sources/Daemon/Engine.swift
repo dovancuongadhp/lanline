@@ -43,6 +43,7 @@ final class Engine: @unchecked Sendable {
     private var wifiDeviceChecked = Date.distantPast
     private var pfToken: String?
     private var pfDevice: String?
+    private var ignoreHoldUntil: Date?
     private var lastWritten: LockStatus?
     private var lastStatusWrite = Date.distantPast
     private var lastLogAt: [String: Date] = [:]
@@ -70,6 +71,7 @@ final class Engine: @unchecked Sendable {
         defer { lock.unlock() }
         switch verb {
         case "HOLD":
+            if let ignoreHoldUntil, Date() < ignoreHoldUntil { return "OK" }
             blockTether = parts.count < 2 || parts[1] != "0"
             let starting = !isHolding
             holdUntil = Date().addingTimeInterval(2.5)
@@ -78,6 +80,12 @@ final class Engine: @unchecked Sendable {
         case "RELEASE":
             holdUntil = nil
             reconcile()
+            clearPacketFilter()
+            enableLiveWifiServices()
+            return "OK"
+        case "REPAIR":
+            ignoreHoldUntil = Date().addingTimeInterval(1.5)
+            repairWifi()
             return "OK"
         case "PING":
             return "OK"
@@ -109,7 +117,7 @@ final class Engine: @unchecked Sendable {
             }
         }
         print("Wi‑Fi: \(device ?? "không có"), nguồn \(power)")
-        print("Wi‑Fi chỉ bị khóa khi bật công tắc Khóa Wi‑Fi trong LanLock.")
+        print("Wi‑Fi chỉ bị khóa khi bật công tắc trong Lanline.")
     }
 
     private var isHolding: Bool {
@@ -131,6 +139,7 @@ final class Engine: @unchecked Sendable {
             clearPacketFilter()
             restoreTether()
             restoreWifiServices()
+            enableLiveWifiServices()
         }
         if holding != wasHolding {
             log(holding ? "Bắt đầu chặn mạng ngoài" : "Đã mở chặn. Wi‑Fi vẫn tắt, tự bật khi cần.")
@@ -163,7 +172,7 @@ final class Engine: @unchecked Sendable {
     private func disableWifiService() {
         let services = Shell.run("/usr/sbin/networksetup", ["-listallnetworkservices"])
         guard services.code == 0 else { return }
-        for service in parseServices(services.output) where service.enabled && isWifiService(service.name) {
+        for service in parseServices(services.output) where service.enabled && isWifiServiceName(service.name) {
             let result = Shell.run("/usr/sbin/networksetup", ["-setnetworkserviceenabled", service.name, "off"])
             if result.code == 0 {
                 if !disabledServices.contains(service.name) {
@@ -177,9 +186,42 @@ final class Engine: @unchecked Sendable {
         }
     }
 
-    private func isWifiService(_ name: String) -> Bool {
-        let value = name.lowercased()
-        return value == "wi-fi" || value == "wifi" || value == "airport" || value.contains("wi-fi")
+    private func repairWifi() {
+        holdUntil = nil
+        clearPacketFilter()
+        restoreTether()
+        restoreWifiServices()
+        enableLiveWifiServices()
+        if wifiDevice == nil || Date().timeIntervalSince(wifiDeviceChecked) > 5 {
+            refreshWifiDevice()
+        }
+        if let device = wifiDevice, isSafeInterfaceName(device) {
+            let on = Shell.run("/usr/sbin/networksetup", ["-setairportpower", device, "on"])
+            if on.code == 0 {
+                log("Đã bật lại Wi‑Fi")
+            } else {
+                log("Không bật lại được sóng Wi‑Fi: \(oneLine(on.output))")
+            }
+        }
+        disabledServices.removeAll { isWifiServiceName($0) }
+        persist()
+        wasHolding = false
+        publish(holding: false, wifiOn: true, message: "Đã bật lại Wi‑Fi")
+    }
+
+    private func enableLiveWifiServices() {
+        let services = Shell.run("/usr/sbin/networksetup", ["-listallnetworkservices"])
+        guard services.code == 0 else { return }
+        for service in parseServices(services.output) where !service.enabled && isWifiServiceName(service.name) {
+            let result = Shell.run("/usr/sbin/networksetup", ["-setnetworkserviceenabled", service.name, "on"])
+            if result.code == 0 {
+                log("Đã bật lại dịch vụ \(service.name)")
+            } else {
+                log("Không bật lại được dịch vụ \(service.name): \(oneLine(result.output))")
+            }
+            disabledServices.removeAll { $0 == service.name }
+        }
+        persist()
     }
 
     private func loadPacketBlock(device: String) {
@@ -251,7 +293,7 @@ final class Engine: @unchecked Sendable {
     }
 
     private func restoreWifiServices() {
-        restoreServices(disabledServices.filter(isWifiService))
+        restoreServices(disabledServices.filter(isWifiServiceName))
     }
 
     private func restoreServices(_ names: [String]) {

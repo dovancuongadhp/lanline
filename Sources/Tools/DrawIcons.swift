@@ -32,49 +32,34 @@ for (name, pixels) in files {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     let rect = NSRect(x: 0, y: 0, width: pixels, height: pixels)
-    let gradient = NSGradient(colors: [
-        NSColor(srgbRed: 0.20, green: 0.48, blue: 0.64, alpha: 1),
-        NSColor(srgbRed: 0.07, green: 0.22, blue: 0.38, alpha: 1),
-    ])
-    gradient?.draw(in: rect, angle: -90)
-    NSColor.white.set()
-    let side = CGFloat(pixels) * 0.62
-    let icon = NSRect(
+    NSColor(srgbRed: 0.80, green: 0.89, blue: 0.96, alpha: 1).setFill()
+    NSBezierPath(rect: rect).fill()
+    let side = CGFloat(pixels) * 0.46
+    let height = side * 1.05
+    let port = NSRect(
         x: rect.midX - side / 2,
-        y: rect.midY - side / 2 - CGFloat(pixels) * 0.02,
+        y: rect.midY - height / 2,
         width: side,
-        height: side
+        height: height
     )
-    shieldPath(in: icon).fill()
+    NSColor(srgbRed: 0.18, green: 0.45, blue: 0.72, alpha: 1).setFill()
+    lanPort(in: port).housing.fill()
     NSGraphicsContext.restoreGraphicsState()
     guard let png = rep.representation(using: .png, properties: [:]) else { continue }
     try? png.write(to: output.appendingPathComponent(name))
 }
 
-func shieldPath(in rect: NSRect) -> NSBezierPath {
-    let path = NSBezierPath()
-    path.move(to: NSPoint(x: rect.minX, y: rect.maxY - rect.height * 0.16))
-    path.curve(
-        to: NSPoint(x: rect.midX, y: rect.maxY),
-        controlPoint1: NSPoint(x: rect.minX + rect.width * 0.08, y: rect.maxY),
-        controlPoint2: NSPoint(x: rect.midX - rect.width * 0.22, y: rect.maxY)
+func lanPort(in rect: NSRect) -> (housing: NSBezierPath, socket: NSBezierPath) {
+    let body = NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.84)
+    let latchWidth = rect.width * 0.46
+    let latchHeight = rect.height * 0.20
+    let latch = NSRect(
+        x: rect.midX - latchWidth / 2,
+        y: body.maxY - latchHeight * 0.28,
+        width: latchWidth,
+        height: latchHeight
     )
-    path.curve(
-        to: NSPoint(x: rect.maxX, y: rect.maxY - rect.height * 0.16),
-        controlPoint1: NSPoint(x: rect.midX + rect.width * 0.22, y: rect.maxY),
-        controlPoint2: NSPoint(x: rect.maxX - rect.width * 0.08, y: rect.maxY)
-    )
-    path.line(to: NSPoint(x: rect.maxX, y: rect.maxY - rect.height * 0.46))
-    path.curve(
-        to: NSPoint(x: rect.midX, y: rect.minY),
-        controlPoint1: NSPoint(x: rect.maxX, y: rect.midY - rect.height * 0.02),
-        controlPoint2: NSPoint(x: rect.midX + rect.width * 0.18, y: rect.minY + rect.height * 0.12)
-    )
-    path.curve(
-        to: NSPoint(x: rect.minX, y: rect.maxY - rect.height * 0.46),
-        controlPoint1: NSPoint(x: rect.midX - rect.width * 0.18, y: rect.minY + rect.height * 0.12),
-        controlPoint2: NSPoint(x: rect.minX, y: rect.midY - rect.height * 0.02)
-    )
-    path.close()
-    return path
+    let housing = NSBezierPath(roundedRect: body, xRadius: rect.width * 0.16, yRadius: rect.width * 0.16)
+    housing.appendRoundedRect(latch, xRadius: latchHeight * 0.45, yRadius: latchHeight * 0.45)
+    return (housing, NSBezierPath())
 }

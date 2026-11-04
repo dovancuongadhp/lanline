@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>vi</string>
 	<key>CFBundleExecutable</key>
-	<string>LanLock</string>
+	<string>Lanline</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.lanlock.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>LanLock</string>
+	<string>Lanline</string>
 	<key>CFBundleDisplayName</key>
-	<string>LanLock</string>
+	<string>Lanline</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleIconFile</key>

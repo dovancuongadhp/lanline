@@ -8,7 +8,7 @@ fi
 ./build.sh
 
 launchctl bootout system/com.lanlock.daemon 2>/dev/null || true
-killall LanLock 2>/dev/null || true
+killall LanLock Lanline 2>/dev/null || true
 
 CONSOLE_USER="$(stat -f %Su /dev/console || true)"
 if [[ -n "${CONSOLE_USER}" && "${CONSOLE_USER}" != "root" ]]; then
@@ -18,10 +18,10 @@ fi
 rm -f /Library/LaunchAgents/com.lanlock.app.plist
 rm -rf "/Library/Application Support/LanLock"
 
-rm -rf /Applications/LanLock.app
-cp -R build/LanLock.app /Applications/LanLock.app
-chown -R root:wheel /Applications/LanLock.app
-chmod -R go-w /Applications/LanLock.app
+rm -rf /Applications/LanLock.app /Applications/Lanline.app
+cp -R build/Lanline.app /Applications/Lanline.app
+chown -R root:wheel /Applications/Lanline.app
+chmod -R go-w /Applications/Lanline.app
 
 mkdir -p /Library/Logs/LanLock
 cat > /Library/LaunchDaemons/com.lanlock.daemon.plist <<'EOF'
@@ -33,7 +33,7 @@ cat > /Library/LaunchDaemons/com.lanlock.daemon.plist <<'EOF'
 	<string>com.lanlock.daemon</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Applications/LanLock.app/Contents/MacOS/lanlockd</string>
+		<string>/Applications/Lanline.app/Contents/MacOS/lanlockd</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
@@ -55,4 +55,4 @@ launchctl bootstrap system /Library/LaunchDaemons/com.lanlock.daemon.plist
 launchctl enable system/com.lanlock.daemon || true
 launchctl kickstart -k system/com.lanlock.daemon
 
-echo "Đã cài LanLock vào Applications. File đóng gói: dist/LanLock.dmg"
+echo "Đã cài Lanline vào Applications. File đóng gói: dist/Lanline.dmg"

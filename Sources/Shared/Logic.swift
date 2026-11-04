@@ -58,8 +58,21 @@ struct PersistentState: Codable, Equatable, Sendable {
     var downedDevices: [String]
 }
 
+func normalizedServiceName(_ name: String) -> String {
+    var value = name.lowercased()
+    for dash in ["\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}", "\u{2212}", "\u{FE63}", "\u{FF0D}"] {
+        value = value.replacingOccurrences(of: dash, with: "-")
+    }
+    return value
+}
+
+func isWifiServiceName(_ name: String) -> Bool {
+    let value = normalizedServiceName(name)
+    return value == "wi-fi" || value == "wifi" || value == "airport" || value.contains("wi-fi")
+}
+
 func portRole(name: String, device: String) -> PortRole {
-    let port = name.lowercased()
+    let port = normalizedServiceName(name)
     let iface = device.lowercased()
     if port == "wi-fi" || port == "wifi" || port == "airport" || port.contains("wi-fi") {
         return .wifi

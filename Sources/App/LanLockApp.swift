@@ -42,6 +42,27 @@ final class PanelModel: ObservableObject, @unchecked Sendable {
         }
     }
 
+    func repairWifi() {
+        let send = { [weak self] in
+            guard let self else { return }
+            self.lockEnabled = false
+            DispatchQueue.global(qos: .userInitiated).async {
+                let reply = ControlClient.send("REPAIR")
+                DispatchQueue.main.async {
+                    self.notice = reply == "OK" ? nil : "Chưa bật lại được Wi‑Fi."
+                }
+            }
+        }
+        if lockEnabled {
+            authenticate(reason: "Bật lại Wi‑Fi") { ok in
+                guard ok else { return }
+                send()
+            }
+        } else {
+            send()
+        }
+    }
+
     func authenticate(reason: String, completion: @escaping (Bool) -> Void) {
         let context = LAContext()
         context.localizedCancelTitle = "Huỷ"
@@ -202,7 +223,7 @@ struct LanLockApp: App {
     }
 
     var body: some Scene {
-        Window("Chặn mạng ngoài", id: "main") {
+        Window("Lanline", id: "main") {
             MainWindow(model: model, appDelegate: appDelegate)
         }
         .defaultSize(width: 520, height: 300)
@@ -211,48 +232,34 @@ struct LanLockApp: App {
 }
 
 enum MenuGlyph {
-    static func image(locked: Bool) -> NSImage {
-        let side: CGFloat = 16
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            let path = shieldPath(in: rect.insetBy(dx: 2.2, dy: 1.6))
-            NSColor.black.set()
+    static func image(locked: Bool, dark: Bool) -> NSImage {
+        let width: CGFloat = locked ? 22 : 16
+        let image = NSImage(size: NSSize(width: width, height: 16), flipped: false) { _ in
+            (locked && dark ? NSColor.white : NSColor.black).setFill()
+            let port = NSRect(x: locked ? 0.2 : 2.0, y: 1.5, width: 12.2, height: 13.0)
+            menuPort(in: port).fill()
             if locked {
-                path.fill()
-            } else {
-                path.lineWidth = 1.35
-                path.stroke()
+                NSColor(srgbRed: 0.18, green: 0.78, blue: 0.32, alpha: 1).setFill()
+                NSBezierPath(ovalIn: NSRect(x: 14.2, y: 4.2, width: 7.2, height: 7.2)).fill()
             }
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = !locked
         return image
     }
 
-    private static func shieldPath(in rect: NSRect) -> NSBezierPath {
-        let path = NSBezierPath()
-        path.move(to: NSPoint(x: rect.minX, y: rect.maxY - rect.height * 0.16))
-        path.curve(
-            to: NSPoint(x: rect.midX, y: rect.maxY),
-            controlPoint1: NSPoint(x: rect.minX + rect.width * 0.08, y: rect.maxY),
-            controlPoint2: NSPoint(x: rect.midX - rect.width * 0.22, y: rect.maxY)
+    private static func menuPort(in rect: NSRect) -> NSBezierPath {
+        let body = NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.78)
+        let latchWidth = rect.width * 0.5
+        let latchHeight = rect.height * 0.26
+        let latch = NSRect(
+            x: rect.midX - latchWidth / 2,
+            y: body.maxY - latchHeight * 0.2,
+            width: latchWidth,
+            height: latchHeight
         )
-        path.curve(
-            to: NSPoint(x: rect.maxX, y: rect.maxY - rect.height * 0.16),
-            controlPoint1: NSPoint(x: rect.midX + rect.width * 0.22, y: rect.maxY),
-            controlPoint2: NSPoint(x: rect.maxX - rect.width * 0.08, y: rect.maxY)
-        )
-        path.line(to: NSPoint(x: rect.maxX, y: rect.maxY - rect.height * 0.46))
-        path.curve(
-            to: NSPoint(x: rect.midX, y: rect.minY),
-            controlPoint1: NSPoint(x: rect.maxX, y: rect.midY - rect.height * 0.02),
-            controlPoint2: NSPoint(x: rect.midX + rect.width * 0.18, y: rect.minY + rect.height * 0.12)
-        )
-        path.curve(
-            to: NSPoint(x: rect.minX, y: rect.maxY - rect.height * 0.46),
-            controlPoint1: NSPoint(x: rect.midX - rect.width * 0.18, y: rect.minY + rect.height * 0.12),
-            controlPoint2: NSPoint(x: rect.minX, y: rect.midY - rect.height * 0.02)
-        )
-        path.close()
+        let path = NSBezierPath(roundedRect: body, xRadius: 1.6, yRadius: 1.6)
+        path.appendRoundedRect(latch, xRadius: 0.9, yRadius: 0.9)
         return path
     }
 }
@@ -263,7 +270,7 @@ enum DaemonSetup {
         let app = Bundle.main.bundleURL
         guard app.path.hasPrefix("/Applications/") else {
             let alert = NSAlert()
-            alert.messageText = "Kéo LanLock vào Applications"
+            alert.messageText = "Kéo Lanline vào Applications"
             alert.informativeText = "App cần nằm trong thư mục Ứng dụng thì mới chặn được Wi‑Fi. Xóa app ở đó là gỡ được."
             alert.runModal()
             return
@@ -323,6 +330,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     override init() {
         super.init()
         menu.delegate = self
+        DistributedNotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appearanceChanged),
+            name: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil
+        )
     }
 
     func sync() {
@@ -335,7 +348,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         }
         let button = item?.button
-        button?.image = MenuGlyph.image(locked: model.lockEnabled)
+        let dark = button?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        button?.image = MenuGlyph.image(locked: model.lockEnabled, dark: dark)
         button?.imageScaling = .scaleNone
         button?.toolTip = model.lockEnabled ? "Đang chặn mạng ngoài" : "Chưa chặn mạng ngoài"
         item?.menu = menu
@@ -385,6 +399,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func showPanel() { reopen() }
+
+    @objc private func appearanceChanged() {
+        sync()
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -412,7 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if allowQuit { return .terminateNow }
         if promptingQuit { return .terminateLater }
         promptingQuit = true
-        PanelModel.shared.authenticate(reason: "Thoát LanLock") { ok in
+        PanelModel.shared.authenticate(reason: "Thoát Lanline") { ok in
             self.promptingQuit = false
             if ok { self.allowQuit = true }
             NSApp.reply(toApplicationShouldTerminate: ok)
@@ -462,6 +480,7 @@ struct MainWindow: View {
 
 struct ControlPanel: View {
     @ObservedObject var model: PanelModel
+    @State private var showRepair = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -494,10 +513,42 @@ struct ControlPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Tác giả: Đỗ Văn Cường")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                Button {
+                    showRepair = true
+                } label: {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Wi‑Fi bị kẹt")
+                Spacer(minLength: 8)
+                Text("Tác giả: Đỗ Văn Cường")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .sheet(isPresented: $showRepair) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Wi‑Fi bị kẹt")
+                    .font(.headline)
+                Text("Chỉ dùng khi đã tắt chặn mà Wi‑Fi vẫn có dấu chấm than.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Đóng") { showRepair = false }
+                    Spacer(minLength: 12)
+                    Button("Bật lại Wi‑Fi") {
+                        showRepair = false
+                        model.repairWifi()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(width: 340)
         }
         .padding(20)
         .frame(width: 520, alignment: .topLeading)
@@ -514,7 +565,7 @@ struct ControlPanel: View {
     private func fitWindow(to size: CGSize) {
         guard size.width > 200, size.height > 120 else { return }
         DispatchQueue.main.async {
-            guard let window = NSApp.windows.first(where: { $0.title == "Chặn mạng ngoài" }) else { return }
+            guard let window = NSApp.windows.first(where: { $0.title == "Lanline" }) else { return }
             window.styleMask.remove(.resizable)
             let current = window.contentRect(forFrameRect: window.frame).size
             guard abs(current.width - size.width) > 1 || abs(current.height - size.height) > 1 else { return }
@@ -524,12 +575,12 @@ struct ControlPanel: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: model.lockEnabled ? "lock.shield.fill" : "shield")
+            Image(systemName: "cable.connector")
                 .font(.title)
                 .foregroundStyle(model.lockEnabled ? Color.red : Color.secondary)
                 .frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Chặn mạng ngoài")
+                Text("Lanline")
                     .font(.title2.bold())
                 Text(model.lockEnabled
                     ? "Đang bật, để khỏi bật nhầm Wi‑Fi khi đang dùng mạng nội bộ."

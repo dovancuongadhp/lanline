@@ -6,7 +6,7 @@
 	<string>com.lanlock.app</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Applications/LanLock.app/Contents/MacOS/LanLock</string>
+		<string>/Applications/Lanline.app/Contents/MacOS/Lanline</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
